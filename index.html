@@ -3097,25 +3097,30 @@ async function openPack() {
      */
     if (luckyCount > 0) {
 
-        const legendsNeeded =
+        /*
+         * Only as many Legendaries fit into one
+         * pack. Anything left over stays on the
+         * counter and lands in the next pack(s).
+         */
+        const toInsert =
             Math.min(
                 luckyCount,
                 SIZE
             );
 
 
-        luckyCount = 0;
+        let inserted = 0;
 
-        saveMeta();
-
-        drawCoins();
+        let attempts = 0;
 
 
-        for (
-            let n = 0;
-            n < legendsNeeded;
-            n++
+        while (
+            inserted < toInsert &&
+            attempts < toInsert + 3
         ) {
+
+            attempts++;
+
 
             try {
 
@@ -3129,60 +3134,102 @@ async function openPack() {
 
 
                 if (
-                    legends.length &&
-                    !cards.some(
+                    !legends.length
+                ) {
+                    break;
+                }
+
+
+                if (
+                    cards.some(
                         c =>
                             c.id ===
                             legends[0].id
                     )
                 ) {
-
-                    legends[0].rar =
-                        rarOf(
-                            legends[0].score
-                        );
+                    continue;
+                }
 
 
-                    /*
-                     * Replace the current worst card.
-                     * The pack is not sorted yet, so
-                     * find it dynamically - this way two
-                     * Legendaries never overwrite
-                     * each other.
-                     */
-                    let worstIndex = 0;
-
-
-                    cards.forEach(
-                        (card, index) => {
-
-                            if (
-                                card.score >
-                                cards[
-                                    worstIndex
-                                ].score
-                            ) {
-                                worstIndex =
-                                    index;
-                            }
-                        }
+                legends[0].rar =
+                    rarOf(
+                        legends[0].score
                     );
 
 
-                    cards[worstIndex] =
-                        legends[0];
-                }
+                /*
+                 * Replace the current worst card.
+                 * The pack is not sorted yet, so
+                 * find it dynamically - this way two
+                 * Legendaries never overwrite
+                 * each other.
+                 */
+                let worstIndex = 0;
 
-            } catch (e) {}
+
+                cards.forEach(
+                    (card, index) => {
+
+                        if (
+                            card.score >
+                            cards[
+                                worstIndex
+                            ].score
+                        ) {
+                            worstIndex =
+                                index;
+                        }
+                    }
+                );
+
+
+                cards[worstIndex] =
+                    legends[0];
+
+
+                /*
+                 * Only consume the point once the
+                 * Legendary actually landed in the
+                 * pack - failed API calls don't
+                 * eat bonuses.
+                 */
+                inserted++;
+
+                luckyCount--;
+
+            } catch (e) {
+
+                break;
+            }
         }
 
 
+        saveMeta();
+
+        drawCoins();
+
+
         statusMsg =
-            legendsNeeded === 1
+            inserted === 1
                 ? "✦ Series bonus: a guaranteed Legendary joined your pack!"
                 : "✦ Series bonus: " +
-                  legendsNeeded +
+                  inserted +
                   " guaranteed Legendaries joined your pack!";
+
+
+        if (luckyCount > 0) {
+
+            statusMsg +=
+                " (" +
+                luckyCount +
+                " more waiting in the next pack" +
+                (
+                    luckyCount === 1
+                        ? "."
+                        : "s."
+                ) +
+                ")";
+        }
     }
 
 
